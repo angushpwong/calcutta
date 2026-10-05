@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Pacific Classic Tracker</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Flight">
+<meta name="theme-color" content="#1d5e3a">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: standings first, then my-team clinch card, then rounds as compact match rows */
+:root{
+  --bg:#f4f5f1; --card:#fff; --fg:#17201a; --muted:#5f6a62; --line:#d8ddd6;
+  --accent:#1d5e3a; --accent-fg:#fff; --mine:#eef6e9; --good:#1e7b43; --bad:#b4302a; --warn:#8a6508; --chip:#e7eae4;
+  --display:"Archivo",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111613;--card:#1a201c;--fg:#e8ece7;--muted:#97a39b;--line:#2b332d;--accent:#7fd39e;--accent-fg:#0d1a12;--mine:#20301f;--good:#7fd39e;--bad:#f08a80;--warn:#e9c15a;--chip:#242b26;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#111613;--card:#1a201c;--fg:#e8ece7;--muted:#97a39b;--line:#2b332d;--accent:#7fd39e;--accent-fg:#0d1a12;--mine:#20301f;--good:#7fd39e;--bad:#f08a80;--warn:#e9c15a;--chip:#242b26;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.4;padding-inline:16px;padding-block:8px 32px;max-width:720px;margin-inline:auto}
+h1{font-family:var(--display);font-size:20px;margin:4px 0 2px}
+.sub{color:var(--muted);font-size:12px;margin:0 0 10px}
+.sub a{color:var(--accent)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px}
+th,td{padding:7px 6px;text-align:left;border-bottom:1px solid var(--line)}
+th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+td.r,th.r{text-align:right;font-family:var(--mono)}
+tr.mine td{background:var(--mine);font-weight:600}
+tr:last-child td{border-bottom:0}
+.tag{font-size:10px;border-radius:999px;padding:1px 6px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.tag.c{background:var(--good);color:#fff}.tag.x{background:var(--chip);text-decoration:line-through}
+.card{background:var(--mine);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:12px 0}
+.card h2{font-family:var(--display);font-size:14px;margin:0 0 6px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px}
+.kv span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv b{font-family:var(--mono);font-size:16px;font-weight:500}
+.msg{margin-top:8px;font-size:13px}
+.msg.good{color:var(--good);font-weight:600}.msg.bad{color:var(--bad)}
+h3{font-family:var(--display);font-size:13px;margin:14px 0 6px;display:flex;justify-content:space-between;align-items:baseline}
+h3 small{color:var(--muted);font-weight:400;font-family:var(--body)}
+.match{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:6px}
+.match.done{border-left:4px solid var(--good)}
+.match.me{background:var(--mine)}
+select,input,button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 6px;min-width:0}
+select.team{width:100%}
+select.res{font-family:var(--mono);text-align:center}
+.foot{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.foot button{background:var(--chip);font:600 12px var(--body);cursor:pointer}
+.hint{font-size:11px;color:var(--muted)}
+input:focus,select:focus,button:focus{outline:2px solid var(--accent);outline-offset:1px}
+</style>
+</head>
+<body>
+<h1>Pacific Classic Tracker</h1>
+<p class="sub">9-hole matches, ±1 to ±5 per match, halves 0. Edit pairings to match the official draw. <a href="index.html">Calcutta board →</a></p>
+<table id="standings"></table>
+<div id="card"></div>
+<div id="rounds"></div>
+<div class="foot"><label class="hint">My team <select id="myteam"></select></label><button id="clear" type="button">Clear results</button><button id="reset" type="button">Reset pairings</button></div>
+<p class="hint">Clinch = your points already exceed every other team's best possible finish (they win all remaining matches 5-up, including one against you). "Need" is the net points you must still bank for that to hold, assuming the worst in your remaining matches. Projection extends each team's average margin so far over its remaining matches.</p>
+<script>
+const KEY='pc-tracker-v1';
+const TEAMS=["Padron / Douglass","Rosenfeld / Erwin","Balestri / Higgins","Shah / Plusquellec","Wong / Wong","Rife / Zilverberg","Barrows / Sorgani","Williams / Williams"];
+const MAX=5;
+function rr(){const n=8,ids=[...Array(n).keys()],rounds=[];for(let r=0;r<n-1;r++){const m=[];for(let i=0;i<n/2;i++)m.push({a:ids[i],b:ids[n-1-i],res:""});rounds.push(m);ids.splice(1,0,ids.pop());}return rounds;}
+function defaults(){return{my:4,rounds:rr()};}
+let S;try{S=JSON.parse(localStorage.getItem(KEY))||defaults();}catch(e){S=defaults();}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const $=s=>document.querySelector(s);
+const esc=v=>String(v).replace(/</g,"&lt;");
+function fmt(v){return (v>0?"+":"")+v;}
+
+function compute(){
+  const T=TEAMS.map((n,i)=>({i,n,pts:0,p:0,w:0,l:0,h:0,rem:0,oppRem:[]}));
+  S.rounds.forEach(r=>r.forEach(m=>{if(m.a===m.b)return;const A=T[m.a],B=T[m.b];
+    if(m.res===""){A.rem++;B.rem++;A.oppRem.push(m.b);B.oppRem.push(m.a);return;}
+    const v=+m.res;A.pts+=v;B.pts-=v;A.p++;B.p++;if(v>0){A.w++;B.l++;}else if(v<0){A.l++;B.w++;}else{A.h++;B.h++;}}));
+  T.forEach(t=>{t.max=t.pts+MAX*t.rem;t.min=t.pts-MAX*t.rem;t.avg=t.p?t.pts/t.p:0;t.proj=t.pts+t.avg*t.rem;});
+  const sorted=[...T].sort((a,b)=>b.pts-a.pts||b.w-a.w);
+  const bestOtherMax=t=>Math.max(...T.filter(x=>x!==t).map(x=>x.max));
+  const bestOtherMin=t=>Math.max(...T.filter(x=>x!==t).map(x=>x.min));
+  T.forEach(t=>{t.clinched=t.pts>bestOtherMax(t);t.elim=t.max<Math.max(...T.filter(x=>x!==t).map(x=>x.pts));});
+  const projWinner=[...T].sort((a,b)=>b.proj-a.proj||b.pts-a.pts)[0];
+  return{T,sorted,projWinner,bestOtherMax};
+}
+
+function render(){
+  const c=compute(),me=c.T[S.my];
+  $("#standings").innerHTML=`<tr><th>#</th><th>Team</th><th class="r">Pts</th><th class="r">P</th><th class="r">W-L-H</th><th class="r">Max</th><th class="r">Proj</th></tr>`+
+    c.sorted.map((t,i)=>`<tr class="${t.i===S.my?"mine":""}"><td>${i+1}</td><td>${esc(t.n)} ${t.clinched?'<span class="tag c">clinched</span>':t.elim?'<span class="tag x">out</span>':""}</td><td class="r">${fmt(t.pts)}</td><td class="r">${t.p}</td><td class="r">${t.w}-${t.l}-${t.h}</td><td class="r">${fmt(t.max)}</td><td class="r">${fmt(Math.round(t.proj*10)/10)}</td></tr>`).join("");
+  const rank=c.sorted.indexOf(me)+1,second=c.sorted.find(t=>t!==me),threat=c.bestOtherMax(me);
+  const need=Math.max(0,threat-me.pts+1);
+  let msg,cls;
+  if(me.clinched){msg="Flight clinched. No one can catch you.";cls="good";}
+  else if(me.elim){msg="Mathematically out of first.";cls="bad";}
+  else if(need>MAX*me.rem){msg=`Can't clinch on your own: you'd need +${need} but only ${MAX*me.rem} is available. You need help from other results.`;cls="bad";}
+  else msg=`Bank <b>+${need}</b> net over your remaining ${me.rem} match${me.rem===1?"":"es"} (max ${MAX*me.rem}) to clinch regardless of everything else.`;
+  $("#card").innerHTML=`<div class="card"><h2>★ ${esc(me.n)}</h2><div class="kv">
+    <div><span>Position</span><b>${rank}${rank===1?"st":rank===2?"nd":rank===3?"rd":"th"} · ${fmt(me.pts)}</b></div>
+    <div><span>${rank===1?"Lead over 2nd":"Behind leader"}</span><b>${fmt(Math.abs(me.pts-second.pts))}</b></div>
+    <div><span>Remaining</span><b>${me.rem} · max ${fmt(me.max)}</b></div>
+    <div><span>Chaser's best</span><b>${fmt(threat)}</b></div>
+    <div><span>Need to clinch</span><b>${me.clinched?"0":"+"+need}</b></div>
+    <div><span>Projected winner</span><b style="font-size:13px">${esc(c.projWinner.n)}</b></div></div>
+    <div class="msg ${cls||""}">${msg}</div></div>`;
+  $("#rounds").innerHTML=S.rounds.map((r,ri)=>`<h3>Round ${ri+1}<small>${r.filter(m=>m.res!=="").length}/4 in</small></h3>`+
+    r.map((m,mi)=>{const opts=sel=>TEAMS.map((n,i)=>`<option value="${i}" ${i===sel?"selected":""}>${esc(n)}</option>`).join("");
+      const res=[];for(let v=MAX;v>=-MAX;v--)res.push(`<option value="${v}" ${m.res!==""&&+m.res===v?"selected":""}>${v>0?"◀ "+v:v<0?(-v)+" ▶":"½"}</option>`);
+      return`<div class="match ${m.res!==""?"done":""} ${(m.a===S.my||m.b===S.my)?"me":""}" data-r="${ri}" data-m="${mi}">
+      <select class="team a">${opts(m.a)}</select><select class="res" aria-label="Result"><option value="" ${m.res===""?"selected":""}>–</option>${res.join("")}</select><select class="team b">${opts(m.b)}</select></div>`;}).join("")).join("");
+  $("#myteam").innerHTML=TEAMS.map((n,i)=>`<option value="${i}" ${i===S.my?"selected":""}>${esc(n)}</option>`).join("");
+  save();
+}
+document.addEventListener("change",e=>{const el=e.target;
+  if(el.id==="myteam"){S.my=+el.value;}
+  else{const w=el.closest(".match");if(w){const m=S.rounds[+w.dataset.r][+w.dataset.m];
+    if(el.classList.contains("a"))m.a=+el.value;else if(el.classList.contains("b"))m.b=+el.value;else m.res=el.value;}}
+  render();});
+document.addEventListener("click",e=>{if(e.target.id==="clear"){S.rounds.forEach(r=>r.forEach(m=>m.res=""));render();}
+  if(e.target.id==="reset"){S=defaults();render();}});
+render();
+</script>
+</body>
+</html>
