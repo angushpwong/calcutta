@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Founders Calcutta Board</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Calcutta">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#1d5e3a">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="manifest" href="manifest.json">
+<style>
+/* Layout: sticky totals strip, flight chip rail, one flight at a time as rows a thumb can work; settings folded at the bottom */
+:root{
+  --bg:#f4f5f1; --card:#ffffff; --fg:#17201a; --muted:#5f6a62; --line:#d8ddd6;
+  --accent:#1d5e3a; --accent-fg:#ffffff; --mine:#eef6e9;
+  --good:#1e7b43; --bad:#b4302a; --warn:#8a6508; --chip:#e7eae4;
+  --display:"Archivo",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111613; --card:#1a201c; --fg:#e8ece7; --muted:#97a39b; --line:#2b332d;
+  --accent:#7fd39e; --accent-fg:#0d1a12; --mine:#20301f;
+  --good:#7fd39e; --bad:#f08a80; --warn:#e9c15a; --chip:#242b26; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111613; --card:#1a201c; --fg:#e8ece7; --muted:#97a39b; --line:#2b332d;
+  --accent:#7fd39e; --accent-fg:#0d1a12; --mine:#20301f;
+  --good:#7fd39e; --bad:#f08a80; --warn:#e9c15a; --chip:#242b26; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px;line-height:1.4;padding-inline:16px;padding-block:8px 32px;max-width:720px;margin:0 auto}
+h1{font-family:var(--display);font-size:20px;margin:4px 0 2px;text-wrap:balance}
+.sub{color:var(--muted);font-size:12px;margin:0 0 10px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.totals{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);border:1px solid var(--line);border-radius:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:0;overflow:hidden;margin-bottom:10px}
+.totals div{padding:8px 6px;text-align:center;border-right:1px solid var(--line)}
+.totals div:last-child{border-right:0}
+.totals b{display:block;font-family:var(--mono);font-size:15px}
+.totals span{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.next{font-size:12px;color:var(--muted);margin:0 0 10px}
+.next b{color:var(--fg)}
+.rail{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:8px;scrollbar-width:none}
+.rail button{flex:0 0 auto;border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:999px;padding:6px 11px;font:600 12px var(--body);cursor:pointer}
+.rail button.on{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.rail button .ct{opacity:.7;font-family:var(--mono);font-weight:500}
+.mine-card{background:var(--mine);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+.mine-card h2{font-family:var(--display);font-size:14px;margin:0 0 6px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:6px 10px}
+.kv div span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.kv div b{font-family:var(--mono);font-size:15px;font-weight:500}
+.whatif{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;flex-wrap:wrap}
+.flight-head{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.flight-head input{font:600 14px var(--display)}
+.flight-head label{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+input,select{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:6px;padding:5px 7px;min-width:0}
+input:focus,select:focus,button:focus{outline:2px solid var(--accent);outline-offset:1px}
+input.sm{width:64px;font-family:var(--mono)}
+input.price{width:82px;font-family:var(--mono);font-size:15px}
+.team{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:6px}
+.team.mine{background:var(--mine);border-color:var(--accent)}
+.team.up{border-left:4px solid var(--warn)}
+.team.sold .price{border-color:var(--good)}
+.r1{display:flex;gap:6px;align-items:center}
+.r1 .no{font-family:var(--mono);color:var(--muted);width:30px;flex:0 0 auto}
+.r1 input.name{flex:1 1 auto;min-width:0;border-color:transparent;background:transparent;padding-left:0}
+.r1 input.name:focus{background:var(--card);border-color:var(--line)}
+.r1 select{width:50px}
+.r1 .star{border:0;background:transparent;font-size:18px;cursor:pointer;padding:0 2px;color:var(--muted)}
+.team.mine .star{color:var(--accent)}
+.r2{display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr;gap:6px;align-items:end;margin-top:6px}
+.r2 .st span{display:block;font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.r2 .st b{font-family:var(--mono);font-weight:500;font-size:13px}
+.pos{color:var(--good)}.neg{color:var(--bad)}
+.hint{font-size:11px;color:var(--muted);margin:2px 0 10px}
+details{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:8px 12px;margin-top:14px}
+summary{font-family:var(--display);font-weight:700;cursor:pointer}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:8px}
+.grid label{font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.grid h3{grid-column:1/-1;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:8px 0 0}
+.warnmsg{color:var(--bad);font-size:12px}
+.btns{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.btns button{border:1px solid var(--line);background:var(--chip);color:var(--fg);border-radius:6px;padding:6px 10px;font:600 12px var(--body);cursor:pointer}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+</head>
+<body>
+<h1>Founders Calcutta Board</h1>
+<p class="sub">Enter prices as teams sell. Probabilities use A/B/C tiers; EV and break-even update instantly.</p>
+
+<div class="totals" id="totals"></div>
+<p class="next" id="next"></p>
+<div class="rail" id="rail"></div>
+<div id="minecard"></div>
+<div id="flight"></div>
+
+<details id="settings">
+  <summary>Payouts, tiers &amp; derby</summary>
+  <div class="grid" id="settingsGrid"></div>
+  <div class="btns">
+    <button id="resetPrices" type="button">Clear all prices</button>
+    <button id="resetAll" type="button">Reset to defaults</button>
+  </div>
+</details>
+<p class="hint" style="margin-top:10px">Break-even = highest price at which buying a team outright has zero expected profit, counting your own bid into the pot. Ceiling applies the safety margin. Unsold teams count at the flight's estimated price. Half buyback at half price carries exactly half the EV.</p>
+
+<script>
+const KEY='calcutta-2026-v2';
+const LY=[["Kentucky Derby",2360],["Irish Sweepstakes",3090],["Preakness",2030],["Wood Memorial",2110],["Santa Anita Derby",1310],["Belmont Stakes",940],["Breeders Cup",1650],["Pacific Classic",1000]];
+const ALL=["Chris Musgjerd + Michael Musgjerd (+5.0)", "Craig Sanger + Preston Toulon (+3.8)", "Eric Mueller + Corey Van Houten (+2.9)", "Andrew Kane + Ryan Meyer (+2.8)", "Martin Riego de Dios + Jarrett Smith (+1.8)", "Kevin Prosser + Rory Posin (+1.7)", "Chris Spannos + Brian Neault (0.0)", "Joseph Young + Scott Braun (0.1)", "John Yirak + Aaron Saint (1.3)", "Brian Bazzel + Brian Phillips (2.2)", "Matt Spiegel + Jake Adams (2.4)", "Sean Zanganeh + Phillip Maschka (2.5)", "Arvin Narula + Kevin Wan (2.8)", "Travis Campbell + Brad Hendrix (2.8)", "Joshua Kim + Andy Osgood (2.9)", "Jim Ballard + Jeff Silvestri (3.2)", "Daniel Grisa + Casey Beck (4.0)", "Mark Motejunas + Jonathan Trott (4.7)", "Will Pural + Chris Pural (4.9)", "Frank Flanagan + William Ofarrell (5.9)", "Christopher Elardo + Scott Smith (6.0)", "Rod Evans + Rick Itzkowich (6.4)", "Richard Ray + Cody Ray (6.4)", "Jeffrey Ronaldi + Xavier Nady (6.6)", "Rick Segil + Andrew Archer (6.9)", "Mitch Mammini + Ben Consoli (7.3)", "Scott Fisher + Jon Hoffman (8.0)", "Neal Churchill + Bobby McConnell (8.4)", "Bob Duley + Kory Mullin (8.6)", "David Whitehead + Robert Buckingham (8.6)", "Patrick Brown + Steven Lewis (8.7)", "Matthew Clay + Neil McKenna (9.3)", "David Phife + Ryan Phife (9.4)", "Erik Jorissen + Doug King (10.4)", "Christopher Behr + David Andrade (10.5)", "Jay Richards + John Wick (11.1)", "Trevor Capozza + Nick West (11.2)", "Harold Krasner + Jay Schiller (11.2)", "Jon Davis + William Hamilton (11.3)", "Michael Morris + Clint Knudsen (11.5)", "Rick Baldridge + Craig Noonan (11.6)", "David Shaffer + John Kollus (12.1)", "Andrew Tarlow + Jeff Pennington (12.6)", "Ross Afsahi + Jamie Ogle (12.7)", "Andy Jones + Chad Conrad (14.0)", "Bradley Roppe + Rob Silvestri (14.1)", "James Boon + Tyler Boon (14.2)", "Austin Maleki + Aurash Banitaba (15.1)", "Brian Kinsman + Douglas Kollus (15.5)", "Craig Vent + Dave Wilbur (15.8)", "Brian Witwer + Jake Aubert (16.7)", "Robert Hanczor + Brian Tilley (16.7)", "William Van Dyke + Brad Van Dyke (17.0)", "Michael Cornell + Michael Chase (17.7)", "Richard Unger + Brad Foltz (18.3)", "Paul McClintock + Paul Hansen (18.6)", "Doug Padron + Alec Douglass (18.9)", "Robert Rosenfeld + Alexander Erwin (19.2)", "Fabrizio Balestri + Henry Higgins (19.3)", "Jai Shah + John Plusquellec (20.7)", "Angus Wong + Victor Wong (22.7)", "Guerin Rife + Greg Zilverberg (23.3)", "Mercer Barrows + Mike Sorgani (25.2)", "Michael Williams + Joshua Williams (32.4)"];
+function defaults(){return{sel:7,
+  s:{s1:50,s2:20,s3:10,sd:20,d1:50,d2:30,d3:20,wA:4,wB:2.5,wC:1.6,w0:1,margin:20,whatif:""},
+  flights:LY.map((f,i)=>({name:f[0],est:f[1],dw:1,teams:Array.from({length:8},(_,j)=>({num:i*8+j+1,name:ALL[i*8+j],tier:"",price:"",mine:i==7&&j==4}))}))};}
+let S;
+try{S=JSON.parse(localStorage.getItem(KEY))||defaults();}catch(e){S=defaults();}
+if(!S.flights)S=defaults();
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const $=s=>document.querySelector(s);
+const money=v=>"$"+Math.round(v).toLocaleString();
+const pct=v=>(v*100).toFixed(0)+"%";
+const N=v=>{const x=parseFloat(v);return isFinite(x)?x:0;};
+
+// Plackett-Luce: probability each entrant finishes 1st, 2nd, 3rd
+function top3(w){const n=w.length,S=w.reduce((a,b)=>a+b,0),P=w.map(()=>[0,0,0]);
+  for(let i=0;i<n;i++){const pi=w[i]/S;P[i][0]+=pi;const S2=S-w[i];
+    for(let j=0;j<n;j++){if(j==i)continue;const pj=pi*w[j]/S2;P[j][1]+=pj;const S3=S2-w[j];
+      for(let k=0;k<n;k++){if(k==i||k==j)continue;P[k][2]+=pj*w[k]/S3;}}}
+  return P;}
+
+function compute(){
+  const s=S.s,sp={1:s.s1/100,2:s.s2/100,3:s.s3/100},sd=s.sd/100;
+  const tw=t=>t=="A"?s.wA:t=="B"?s.wB:t=="C"?s.wC:s.w0;
+  const F=S.flights.map(f=>{const sold=f.teams.filter(t=>t.price!=="");
+    const pot=f.teams.reduce((a,t)=>a+(t.price===""?N(f.est):N(t.price)),0);
+    return{pot,sold:sold.length,P:top3(f.teams.map(t=>tw(t.tier)))};});
+  const total=F.reduce((a,f)=>a+f.pot,0),derby=sd*total;
+  const DP=top3(S.flights.map(f=>N(f.dw)||1));
+  S.flights.forEach((f,fi)=>{const dshare=DP[fi][0]*s.d1/100+DP[fi][1]*s.d2/100+DP[fi][2]*s.d3/100;
+    f.teams.forEach((t,ti)=>{const [p1,p2,p3]=F[fi].P[ti];const r=p1*sp[1]+p2*sp[2]+p3*sp[3];
+      const own=t.price===""?N(f.est):N(t.price);
+      const Rf=F[fi].pot-own,Rall=total-own,D=p1*dshare;
+      const be=(r*Rf+D*sd*Rall)/(1-r-D*sd);
+      const ev=p=>r*(Rf+p)+D*sd*(Rall+p)-p;
+      t.c={p1,p2,p3,top3:p1+p2+p3,r,be,ev,dEv:D*derby};});});
+  return{F,total,derby,sold:F.reduce((a,f)=>a+f.sold,0),n:S.flights.reduce((a,f)=>a+f.teams.length,0)};
+}
+
+function render(){
+  const c=compute(),s=S.s;
+  const spSum=N(s.s1)+N(s.s2)+N(s.s3)+N(s.sd);
+  $("#totals").innerHTML=`<div><b class="num">${money(S.flights.reduce((a,f)=>a+f.teams.reduce((x,t)=>x+N(t.price),0),0))}</b><span>Sold so far</span></div>
+  <div><b class="num">${money(c.total)}</b><span>Projected pot</span></div>
+  <div><b class="num">${money(c.derby)}</b><span>Derby pool</span></div>
+  <div><b class="num">${c.sold}/${c.n}</b><span>Teams sold</span></div>`;
+  // next up in auction order
+  let up=null;for(const f of S.flights){for(const t of f.teams){if(t.price===""){up={f,t};break;}}if(up)break;}
+  $("#next").innerHTML=up?`Next up: <b>#${up.t.num} ${up.t.name}</b> (${up.f.name}) · break-even <b class="num">${money(up.t.c.be)}</b>`:"Auction complete.";
+  $("#rail").innerHTML=S.flights.map((f,i)=>`<button type="button" data-f="${i}" class="${i==S.sel?"on":""}">${f.name} <span class="ct">${c.F[i].sold}/${f.teams.length}</span></button>`).join("");
+  // my team card
+  let mine=null;S.flights.forEach(f=>f.teams.forEach(t=>{if(t.mine)mine={f,t};}));
+  if(mine){const t=mine.t,ceil=t.c.be*(1-N(s.margin)/100),w=s.whatif===""?(t.price===""?null:N(t.price)):N(s.whatif);
+    const evTxt=w==null?"—":money(t.c.ev(w));
+    $("#minecard").innerHTML=`<div class="mine-card"><h2>★ #${t.num} ${t.name} · ${mine.f.name}</h2>
+    <div class="kv"><div><span>Win / 2nd / 3rd</span><b>${pct(t.c.p1)} / ${pct(t.c.p2)} / ${pct(t.c.p3)}</b></div>
+    <div><span>Break-even</span><b>${money(t.c.be)}</b></div><div><span>Ceiling (−${N(s.margin)}%)</span><b>${money(ceil)}</b></div>
+    <div><span>Flight share</span><b>${pct(t.c.r)} of pot</b></div><div><span>Derby EV</span><b>${money(t.c.dEv)}</b></div>
+    <div><span>EV at ${w==null?"price":money(w)}</span><b class="${w!=null&&t.c.ev(w)<0?"neg":"pos"}">${evTxt}${w!=null?` <small style="font-weight:400;color:var(--muted)">(half: ${money(t.c.ev(w)/2)})</small>`:""}</b></div></div>
+    <div class="whatif"><label for="whatif">What if the price is</label><input id="whatif" class="price" inputmode="numeric" placeholder="${t.price===""?"$":t.price}" value="${s.whatif}"> <span style="color:var(--muted)">Leave blank to use the entered price.</span></div></div>`;
+  }else $("#minecard").innerHTML=`<p class="hint">Tap ★ on a team to pin your own team here.</p>`;
+  // flight panel
+  const fi=S.sel,f=S.flights[fi];
+  $("#flight").innerHTML=`<div class="flight-head"><input id="fname" value="${esc(f.name)}" style="flex:1 1 140px;min-width:0">
+   <label>Est. unsold <input id="fest" class="sm" inputmode="numeric" value="${f.est}"></label>
+   <label>Derby wt <input id="fdw" class="sm" inputmode="decimal" value="${f.dw}"></label></div>
+   <p class="hint">Flight pot ${money(c.F[fi].pot)} · pays 1st ${money(c.F[fi].pot*s.s1/100)} · 2nd ${money(c.F[fi].pot*s.s2/100)} · 3rd ${money(c.F[fi].pot*s.s3/100)} · ${money(c.F[fi].pot*s.sd/100)} to derby</p>`+
+   f.teams.map((t,ti)=>{const isUp=up&&up.t===t,ev=t.price===""?null:t.c.ev(N(t.price));
+    return`<div class="team ${t.mine?"mine":""} ${isUp?"up":""} ${t.price!==""?"sold":""}" data-t="${ti}">
+    <div class="r1"><span class="no">#${t.num}</span><input class="name" aria-label="Team name" value="${esc(t.name)}">
+    <select aria-label="Tier"><option value="">–</option><option ${t.tier=="A"?"selected":""}>A</option><option ${t.tier=="B"?"selected":""}>B</option><option ${t.tier=="C"?"selected":""}>C</option></select>
+    <button class="star" type="button" aria-label="My team">${t.mine?"★":"☆"}</button></div>
+    <div class="r2"><input class="price" aria-label="Sold price" inputmode="numeric" placeholder="price" value="${t.price}">
+    <div class="st"><span>Win</span><b>${pct(t.c.p1)}</b></div><div class="st"><span>Top 3</span><b>${pct(t.c.top3)}</b></div>
+    <div class="st"><span>B/E</span><b>${money(t.c.be)}</b></div><div class="st"><span>EV</span><b class="${ev==null?"":ev<0?"neg":"pos"}">${ev==null?"—":(ev<0?"−":"+")+money(Math.abs(ev)).slice(1)}</b></div></div></div>`;}).join("");
+  // settings
+  const fld=(k,l,step)=>`<label for="s_${k}">${l}<input id="s_${k}" class="sm" inputmode="decimal" step="${step||1}" value="${s[k]}"></label>`;
+  $("#settingsGrid").innerHTML=`<h3>Flight payout, % of flight pot</h3>${fld("s1","1st %")}${fld("s2","2nd %")}${fld("s3","3rd %")}${fld("sd","To derby %")}
+  ${spSum!=100?`<div class="warnmsg" style="grid-column:1/-1">Splits add to ${spSum}%, not 100%.</div>`:""}
+  <h3>Derby payout, % of derby pool</h3>${fld("d1","1st %")}${fld("d2","2nd %")}${fld("d3","3rd %")}
+  <h3>Tier strength (relative weights)</h3>${fld("wA","A","0.1")}${fld("wB","B","0.1")}${fld("wC","C","0.1")}${fld("w0","Others","0.1")}
+  <h3>Bidding</h3>${fld("margin","Safety margin %")}`;
+  save();
+}
+function esc(v){return String(v).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+
+document.addEventListener("click",e=>{
+  const b=e.target.closest("#rail button");if(b){S.sel=+b.dataset.f;render();return;}
+  const st=e.target.closest(".star");if(st){const ti=+st.closest(".team").dataset.t,t=S.flights[S.sel].teams[ti],was=t.mine;
+    S.flights.forEach(f=>f.teams.forEach(x=>x.mine=false));t.mine=!was;render();return;}
+  if(e.target.id=="resetPrices"){S.flights.forEach(f=>f.teams.forEach(t=>t.price=""));S.s.whatif="";render();}
+  if(e.target.id=="resetAll"){S=defaults();render();}
+});
+document.addEventListener("change",e=>{
+  const el=e.target,f=S.flights[S.sel];
+  if(el.id=="fname")f.name=el.value;else if(el.id=="fest")f.est=N(el.value);else if(el.id=="fdw")f.dw=N(el.value)||1;
+  else if(el.id=="whatif")S.s.whatif=el.value.trim()===""?"":String(N(el.value));
+  else if(el.id&&el.id.startsWith("s_"))S.s[el.id.slice(2)]=N(el.value);
+  else{const tm=el.closest(".team");if(tm){const t=f.teams[+tm.dataset.t];
+    if(el.classList.contains("name"))t.name=el.value;
+    else if(el.tagName=="SELECT")t.tier=el.value;
+    else if(el.classList.contains("price"))t.price=el.value.trim()===""?"":String(N(el.value.replace(/[$,]/g,"")));}}
+  render();
+});
+render();
+</script>
+</body>
+</html>
