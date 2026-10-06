@@ -28,10 +28,12 @@ h1{font-family:var(--display);font-size:20px;margin:4px 0 2px}
 table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;font-size:13px}
 th,td{padding:7px 6px;text-align:left;border-bottom:1px solid var(--line)}
 th{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
-td.r,th.r{text-align:right;font-family:var(--mono)}
+td.r,th.r{text-align:right;font-family:var(--mono);white-space:nowrap}
 tr.mine td{background:var(--mine);font-weight:600}
 tr:last-child td{border-bottom:0}
 .tag{font-size:10px;border-radius:999px;padding:1px 6px;background:var(--chip);color:var(--muted);white-space:nowrap}
+.proj{font-size:13px;margin:8px 0 0}
+.tag.p{background:var(--accent);color:var(--accent-fg)}
 .tag.c{background:var(--good);color:#fff}.tag.x{background:var(--chip);text-decoration:line-through}
 .card{background:var(--mine);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;margin:12px 0}
 .card h2{font-family:var(--display);font-size:14px;margin:0 0 6px}
@@ -58,10 +60,11 @@ input:focus,select:focus,button:focus{outline:2px solid var(--accent);outline-of
 <h1>Pacific Classic Tracker</h1>
 <p class="sub">9-hole matches, ±1 to ±5 per match, halves 0. Edit pairings to match the official draw. <a href="index.html">Calcutta board →</a></p>
 <table id="standings"></table>
+<p class="proj" id="proj"></p>
 <div id="card"></div>
 <div id="rounds"></div>
 <div class="foot"><label class="hint">My team <select id="myteam"></select></label><button id="clear" type="button">Clear results</button><button id="reset" type="button">Reset pairings</button></div>
-<p class="hint">Clinch = your points already exceed every other team's best possible finish (they win all remaining matches 5-up, including one against you). "Need" is the net points you must still bank for that to hold, assuming the worst in your remaining matches. Projection extends each team's average margin so far over its remaining matches.</p>
+<p class="hint">Clinch = your points already exceed every other team's best possible finish (they win all remaining matches 5-up, including one against you). "Need" is the net points you must still bank for that to hold, assuming the worst in your remaining matches. Avg = points gained per match played. Proj = current points + Avg × matches remaining; the projected winner is the team with the highest Proj. Teams with no results yet show "–".</p>
 <script>
 const KEY='pc-tracker-v1';
 const TEAMS=["Padron / Douglass","Rosenfeld / Erwin","Balestri / Higgins","Shah / Plusquellec","Wong / Wong","Rife / Zilverberg","Barrows / Sorgani","Williams / Williams"];
@@ -73,6 +76,8 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 const $=s=>document.querySelector(s);
 const esc=v=>String(v).replace(/</g,"&lt;");
 function fmt(v){return (v>0?"+":"")+v;}
+const r1=v=>Math.round(v*10)/10;
+const ord=n=>n+(n===1?"st":n===2?"nd":n===3?"rd":"th");
 
 function compute(){
   const T=TEAMS.map((n,i)=>({i,n,pts:0,p:0,w:0,l:0,h:0,rem:0,oppRem:[]}));
@@ -84,14 +89,21 @@ function compute(){
   const bestOtherMax=t=>Math.max(...T.filter(x=>x!==t).map(x=>x.max));
   const bestOtherMin=t=>Math.max(...T.filter(x=>x!==t).map(x=>x.min));
   T.forEach(t=>{t.clinched=t.pts>bestOtherMax(t);t.elim=t.max<Math.max(...T.filter(x=>x!==t).map(x=>x.pts));});
-  const projWinner=[...T].sort((a,b)=>b.proj-a.proj||b.pts-a.pts)[0];
-  return{T,sorted,projWinner,bestOtherMax};
+  const played=T.some(t=>t.p>0);
+  const byProj=[...T].sort((a,b)=>b.proj-a.proj||b.avg-a.avg||b.pts-a.pts);
+  const projWinners=played?byProj.filter(t=>Math.abs(t.proj-byProj[0].proj)<1e-9):[];
+  return{T,sorted,byProj,projWinners,played,bestOtherMax};
 }
 
 function render(){
   const c=compute(),me=c.T[S.my];
-  $("#standings").innerHTML=`<tr><th>#</th><th>Team</th><th class="r">Pts</th><th class="r">P</th><th class="r">W-L-H</th><th class="r">Max</th><th class="r">Proj</th></tr>`+
-    c.sorted.map((t,i)=>`<tr class="${t.i===S.my?"mine":""}"><td>${i+1}</td><td>${esc(t.n)} ${t.clinched?'<span class="tag c">clinched</span>':t.elim?'<span class="tag x">out</span>':""}</td><td class="r">${fmt(t.pts)}</td><td class="r">${t.p}</td><td class="r">${t.w}-${t.l}-${t.h}</td><td class="r">${fmt(t.max)}</td><td class="r">${fmt(Math.round(t.proj*10)/10)}</td></tr>`).join("");
+  $("#standings").innerHTML=`<tr><th>#</th><th>Team</th><th class="r">Pts</th><th class="r">W-L-H</th><th class="r">Avg</th><th class="r">Max</th><th class="r">Proj</th></tr>`+
+    c.sorted.map((t,i)=>`<tr class="${t.i===S.my?"mine":""}"><td>${i+1}</td><td>${esc(t.n)} ${t.clinched?'<span class="tag c">clinched</span>':t.elim?'<span class="tag x">out</span>':""}${c.projWinners.includes(t)&&!t.clinched?' <span class="tag p">proj. winner</span>':""}</td><td class="r">${fmt(t.pts)}</td><td class="r">${t.w}-${t.l}-${t.h}</td><td class="r">${t.p?fmt(r1(t.avg)):"–"}</td><td class="r">${fmt(t.max)}</td><td class="r">${t.p?fmt(r1(t.proj)):"–"}</td></tr>`).join("");
+  const pw=c.projWinners,ru=c.byProj.find(t=>!pw.includes(t));
+  $("#proj").innerHTML=!c.played?"Projected winner appears once the first result is in.":
+    pw.length>1?`Projected tie: <b>${pw.map(t=>esc(t.n)).join(", ")}</b> at ${fmt(r1(pw[0].proj))}.`:
+    `Projected winner: <b>${esc(pw[0].n)}</b> at ${fmt(r1(pw[0].proj))} (averaging ${fmt(r1(pw[0].avg))} per match over ${pw[0].p}, ${pw[0].rem} to play)${ru?`, ${r1(pw[0].proj-ru.proj)} ahead of ${esc(ru.n)}`:""}.`;
+  const myProjRank=c.byProj.indexOf(me)+1;
   const rank=c.sorted.indexOf(me)+1,second=c.sorted.find(t=>t!==me),threat=c.bestOtherMax(me);
   const need=Math.max(0,threat-me.pts+1);
   let msg,cls;
@@ -105,7 +117,10 @@ function render(){
     <div><span>Remaining</span><b>${me.rem} · max ${fmt(me.max)}</b></div>
     <div><span>Chaser's best</span><b>${fmt(threat)}</b></div>
     <div><span>Need to clinch</span><b>${me.clinched?"0":"+"+need}</b></div>
-    <div><span>Projected winner</span><b style="font-size:13px">${esc(c.projWinner.n)}</b></div></div>
+    <div><span>Projected winner</span><b style="font-size:13px">${!c.played?"–":pw.length>1?"Tie":esc(pw[0].n)}</b></div>
+    <div><span>My avg / match</span><b>${me.p?fmt(r1(me.avg)):"–"}</b></div>
+    <div><span>My projected total</span><b>${me.p?fmt(r1(me.proj)):"–"}</b></div>
+    <div><span>My projected finish</span><b>${me.p?ord(myProjRank):"–"}</b></div></div>
     <div class="msg ${cls||""}">${msg}</div></div>`;
   $("#rounds").innerHTML=S.rounds.map((r,ri)=>`<h3>Round ${ri+1}<small>${r.filter(m=>m.res!=="").length}/4 in</small></h3>`+
     r.map((m,mi)=>{const opts=sel=>TEAMS.map((n,i)=>`<option value="${i}" ${i===sel?"selected":""}>${esc(n)}</option>`).join("");
