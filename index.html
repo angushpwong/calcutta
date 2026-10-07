@@ -102,18 +102,20 @@ summary{font-family:var(--display);font-weight:700;cursor:pointer}
     <button id="resetAll" type="button">Reset to defaults</button>
   </div>
 </details>
-<p class="hint" style="margin-top:10px">Break-even = highest price at which buying a team outright has zero expected profit, counting your own bid into the pot. Ceiling applies the safety margin. Unsold teams count at the flight's estimated price. Half buyback at half price carries exactly half the EV.</p>
+<p class="hint" style="margin-top:10px">Break-even = highest price at which buying a team outright has zero expected profit, counting your own bid into the pot. Ceiling applies the safety margin. Payouts: 20% of each flight pot goes to the derby, the rest pays 50/30/20; the derby pays 50/25/15/10 among flight winners. Unsold teams count at the flight's estimated price. Half buyback at half price carries exactly half the EV.</p>
 
 <script>
 const KEY='calcutta-2026-v2';
 const LY=[["Kentucky Derby",2360],["Irish Sweepstakes",3090],["Preakness",2030],["Wood Memorial",2110],["Santa Anita Derby",1310],["Belmont Stakes",940],["Breeders Cup",1650],["Pacific Classic",990]];
 const ALL=["Chris Musgjerd + Michael Musgjerd (+5.0)", "Craig Sanger + Preston Toulon (+3.8)", "Eric Mueller + Corey Van Houten (+2.9)", "Andrew Kane + Ryan Meyer (+2.8)", "Martin Riego de Dios + Jarrett Smith (+1.8)", "Kevin Prosser + Rory Posin (+1.7)", "Chris Spannos + Brian Neault (0.0)", "Joseph Young + Scott Braun (0.1)", "John Yirak + Aaron Saint (1.3)", "Brian Bazzel + Brian Phillips (2.2)", "Matt Spiegel + Jake Adams (2.4)", "Sean Zanganeh + Phillip Maschka (2.5)", "Arvin Narula + Kevin Wan (2.8)", "Travis Campbell + Brad Hendrix (2.8)", "Joshua Kim + Andy Osgood (2.9)", "Jim Ballard + Jeff Silvestri (3.2)", "Daniel Grisa + Casey Beck (4.0)", "Mark Motejunas + Jonathan Trott (4.7)", "Will Pural + Chris Pural (4.9)", "Frank Flanagan + William Ofarrell (5.9)", "Christopher Elardo + Scott Smith (6.0)", "Rod Evans + Rick Itzkowich (6.4)", "Richard Ray + Cody Ray (6.4)", "Jeffrey Ronaldi + Xavier Nady (6.6)", "Rick Segil + Andrew Archer (6.9)", "Mitch Mammini + Ben Consoli (7.3)", "Scott Fisher + Jon Hoffman (8.0)", "Neal Churchill + Bobby McConnell (8.4)", "Bob Duley + Kory Mullin (8.6)", "David Whitehead + Robert Buckingham (8.6)", "Patrick Brown + Steven Lewis (8.7)", "Matthew Clay + Neil McKenna (9.3)", "David Phife + Ryan Phife (9.4)", "Erik Jorissen + Doug King (10.4)", "Christopher Behr + David Andrade (10.5)", "Jay Richards + John Wick (11.1)", "Trevor Capozza + Nick West (11.2)", "Harold Krasner + Jay Schiller (11.2)", "Jon Davis + William Hamilton (11.3)", "Michael Morris + Clint Knudsen (11.5)", "Rick Baldridge + Craig Noonan (11.6)", "David Shaffer + John Kollus (12.1)", "Andrew Tarlow + Jeff Pennington (12.6)", "Ross Afsahi + Jamie Ogle (12.7)", "Andy Jones + Chad Conrad (14.0)", "Bradley Roppe + Rob Silvestri (14.1)", "James Boon + Tyler Boon (14.2)", "Austin Maleki + Aurash Banitaba (15.1)", "Brian Kinsman + Douglas Kollus (15.5)", "Craig Vent + Dave Wilbur (15.8)", "Brian Witwer + Jake Aubert (16.7)", "Robert Hanczor + Brian Tilley (16.7)", "William Van Dyke + Brad Van Dyke (17.0)", "Michael Cornell + Michael Chase (17.7)", "Richard Unger + Brad Foltz (18.3)", "Paul McClintock + Paul Hansen (18.6)", "Doug Padron + Alec Douglass (18.9)", "Robert Rosenfeld + Alexander Erwin (19.2)", "Fabrizio Balestri + Henry Higgins (19.3)", "Jai Shah + John Plusquellec (20.7)", "Angus Wong + Victor Wong (22.7)", "Guerin Rife + Greg Zilverberg (23.3)", "Mercer Barrows + Mike Sorgani (25.2)", "Michael Williams + Joshua Williams (32.4)"];
 function defaults(){return{sel:7,
-  s:{s1:50,s2:20,s3:10,sd:20,d1:50,d2:30,d3:20,wA:4,wB:2.5,wC:1.6,w0:1,margin:20,whatif:""},
+  s:{pv:2,s1:50,s2:30,s3:20,sd:20,d1:50,d2:25,d3:15,d4:10,wA:4,wB:2.5,wC:1.6,w0:1,margin:20,whatif:""},
   flights:LY.map((f,i)=>({name:f[0],est:f[1],dw:1,teams:Array.from({length:8},(_,j)=>({num:i*8+j+1,name:ALL[i*8+j],tier:"",price:"",mine:i==7&&j==4}))}))};}
 let S;
 try{S=JSON.parse(localStorage.getItem(KEY))||defaults();}catch(e){S=defaults();}
 if(!S.flights)S=defaults();
+// payout rules v2: 20% off the top to derby, rest of flight pot 50/30/20; derby 50/25/15/10 (keeps saved prices)
+if(S.s.pv!==2)Object.assign(S.s,{pv:2,s1:50,s2:30,s3:20,sd:20,d1:50,d2:25,d3:15,d4:10});
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 const $=s=>document.querySelector(s);
 const money=v=>"$"+Math.round(v).toLocaleString();
@@ -126,16 +128,20 @@ function top3(w){const n=w.length,S=w.reduce((a,b)=>a+b,0),P=w.map(()=>[0,0,0]);
     for(let j=0;j<n;j++){if(j==i)continue;const pj=pi*w[j]/S2;P[j][1]+=pj;const S3=S2-w[j];
       for(let k=0;k<n;k++){if(k==i||k==j)continue;P[k][2]+=pj*w[k]/S3;}}}
   return P;}
+// Plackett-Luce to any depth k (used for the derby's four paid places)
+function topk(w,k){const n=w.length,P=w.map(()=>Array(k).fill(0)),used=Array(n).fill(false);
+  (function go(d,pr,rem){if(d==k)return;for(let i=0;i<n;i++){if(used[i])continue;const q=pr*w[i]/rem;P[i][d]+=q;used[i]=true;go(d+1,q,rem-w[i]);used[i]=false;}})(0,1,w.reduce((a,b)=>a+b,0));
+  return P;}
 
 function compute(){
-  const s=S.s,sp={1:s.s1/100,2:s.s2/100,3:s.s3/100},sd=s.sd/100;
+  const s=S.s,sd=s.sd/100,net=1-sd,sp={1:net*s.s1/100,2:net*s.s2/100,3:net*s.s3/100};
   const tw=t=>t=="A"?s.wA:t=="B"?s.wB:t=="C"?s.wC:s.w0;
   const F=S.flights.map(f=>{const sold=f.teams.filter(t=>t.price!=="");
     const pot=f.teams.reduce((a,t)=>a+(t.price===""?N(f.est):N(t.price)),0);
     return{pot,sold:sold.length,P:top3(f.teams.map(t=>tw(t.tier)))};});
   const total=F.reduce((a,f)=>a+f.pot,0),derby=sd*total;
-  const DP=top3(S.flights.map(f=>N(f.dw)||1));
-  S.flights.forEach((f,fi)=>{const dshare=DP[fi][0]*s.d1/100+DP[fi][1]*s.d2/100+DP[fi][2]*s.d3/100;
+  const DP=topk(S.flights.map(f=>N(f.dw)||1),4);
+  S.flights.forEach((f,fi)=>{const dshare=DP[fi][0]*s.d1/100+DP[fi][1]*s.d2/100+DP[fi][2]*s.d3/100+DP[fi][3]*N(s.d4)/100;
     f.teams.forEach((t,ti)=>{const [p1,p2,p3]=F[fi].P[ti];const r=p1*sp[1]+p2*sp[2]+p3*sp[3];
       const own=t.price===""?N(f.est):N(t.price);
       const Rf=F[fi].pot-own,Rall=total-own,D=p1*dshare;
@@ -147,7 +153,7 @@ function compute(){
 
 function render(){
   const c=compute(),s=S.s;
-  const spSum=N(s.s1)+N(s.s2)+N(s.s3)+N(s.sd);
+  const spSum=N(s.s1)+N(s.s2)+N(s.s3),dSum=N(s.d1)+N(s.d2)+N(s.d3)+N(s.d4),fp=c.F[S.sel].pot,fnet=fp*(1-N(s.sd)/100);
   $("#totals").innerHTML=`<div><b class="num">${money(S.flights.reduce((a,f)=>a+f.teams.reduce((x,t)=>x+N(t.price),0),0))}</b><span>Sold so far</span></div>
   <div><b class="num">${money(c.total)}</b><span>Projected pot</span></div>
   <div><b class="num">${money(c.derby)}</b><span>Derby pool</span></div>
@@ -163,7 +169,7 @@ function render(){
     $("#minecard").innerHTML=`<div class="mine-card"><h2>★ #${t.num} ${t.name} · ${mine.f.name}</h2>
     <div class="kv"><div><span>Win / 2nd / 3rd</span><b>${pct(t.c.p1)} / ${pct(t.c.p2)} / ${pct(t.c.p3)}</b></div>
     <div><span>Break-even</span><b>${money(t.c.be)}</b></div><div><span>Ceiling (−${N(s.margin)}%)</span><b>${money(ceil)}</b></div>
-    <div><span>Flight share</span><b>${pct(t.c.r)} of pot</b></div><div><span>Derby EV</span><b>${money(t.c.dEv)}</b></div>
+    <div><span>Exp. flight share</span><b>${pct(t.c.r)} of pot</b></div><div><span>Derby EV</span><b>${money(t.c.dEv)}</b></div>
     <div><span>EV at ${w==null?"price":money(w)}</span><b class="${w!=null&&t.c.ev(w)<0?"neg":"pos"}">${evTxt}${w!=null?` <small style="font-weight:400;color:var(--muted)">(half: ${money(t.c.ev(w)/2)})</small>`:""}</b></div></div>
     <div class="whatif"><label for="whatif">What if the price is</label><input id="whatif" class="price" inputmode="numeric" placeholder="${t.price===""?"$":t.price}" value="${s.whatif}"> <span style="color:var(--muted)">Leave blank to use the entered price.</span></div></div>`;
   }else $("#minecard").innerHTML=`<p class="hint">Tap ★ on a team to pin your own team here.</p>`;
@@ -172,7 +178,7 @@ function render(){
   $("#flight").innerHTML=`<div class="flight-head"><input id="fname" value="${esc(f.name)}" style="flex:1 1 140px;min-width:0">
    <label>Est. unsold <input id="fest" class="sm" inputmode="numeric" value="${f.est}"></label>
    <label>Derby wt <input id="fdw" class="sm" inputmode="decimal" value="${f.dw}"></label></div>
-   <p class="hint">Flight pot ${money(c.F[fi].pot)} · pays 1st ${money(c.F[fi].pot*s.s1/100)} · 2nd ${money(c.F[fi].pot*s.s2/100)} · 3rd ${money(c.F[fi].pot*s.s3/100)} · ${money(c.F[fi].pot*s.sd/100)} to derby</p>`+
+   <p class="hint">Flight pot ${money(fp)} · ${money(fp-fnet)} to derby · remaining ${money(fnet)} pays 1st ${money(fnet*s.s1/100)} · 2nd ${money(fnet*s.s2/100)} · 3rd ${money(fnet*s.s3/100)}</p>`+
    f.teams.map((t,ti)=>{const isUp=up&&up.t===t,ev=t.price===""?null:t.c.ev(N(t.price));
     return`<div class="team ${t.mine?"mine":""} ${isUp?"up":""} ${t.price!==""?"sold":""}" data-t="${ti}">
     <div class="r1"><span class="no">#${t.num}</span><input class="name" aria-label="Team name" value="${esc(t.name)}">
@@ -183,9 +189,11 @@ function render(){
     <div class="st"><span>B/E</span><b>${money(t.c.be)}</b></div><div class="st"><span>EV</span><b class="${ev==null?"":ev<0?"neg":"pos"}">${ev==null?"—":(ev<0?"−":"+")+money(Math.abs(ev)).slice(1)}</b></div></div></div>`;}).join("");
   // settings
   const fld=(k,l,step)=>`<label for="s_${k}">${l}<input id="s_${k}" class="sm" inputmode="decimal" step="${step||1}" value="${s[k]}"></label>`;
-  $("#settingsGrid").innerHTML=`<h3>Flight payout, % of flight pot</h3>${fld("s1","1st %")}${fld("s2","2nd %")}${fld("s3","3rd %")}${fld("sd","To derby %")}
-  ${spSum!=100?`<div class="warnmsg" style="grid-column:1/-1">Splits add to ${spSum}%, not 100%.</div>`:""}
-  <h3>Derby payout, % of derby pool</h3>${fld("d1","1st %")}${fld("d2","2nd %")}${fld("d3","3rd %")}
+  $("#settingsGrid").innerHTML=`<h3>Derby cut, % of every flight pot</h3>${fld("sd","To derby %")}
+  <h3>Flight payout, % of pot after derby cut</h3>${fld("s1","1st %")}${fld("s2","2nd %")}${fld("s3","3rd %")}
+  ${spSum!=100?`<div class="warnmsg" style="grid-column:1/-1">Flight splits add to ${spSum}%, not 100%.</div>`:""}
+  <h3>Derby payout, % of derby pool</h3>${fld("d1","1st %")}${fld("d2","2nd %")}${fld("d3","3rd %")}${fld("d4","4th %")}
+  ${dSum!=100?`<div class="warnmsg" style="grid-column:1/-1">Derby splits add to ${dSum}%, not 100%.</div>`:""}
   <h3>Tier strength (relative weights)</h3>${fld("wA","A","0.1")}${fld("wB","B","0.1")}${fld("wC","C","0.1")}${fld("w0","Others","0.1")}
   <h3>Bidding</h3>${fld("margin","Safety margin %")}`;
   save();
